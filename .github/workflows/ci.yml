@@ -22,6 +22,9 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
 
+    - name: Set the bignumber whitelist
+      run: mkdir -p $HOME/.ssh/ && echo "140.82.113.3" >> $HOME/.ssh/known_hosts
+
     - name: npm install, build, and test
       run: |
         npm ci
