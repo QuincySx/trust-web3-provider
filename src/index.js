@@ -57,7 +57,11 @@ class TrustWeb3Provider extends EventEmitter {
     if (isHexadecimal(chainId)) {
       hexChainId = chainId;
     } else {
-      hexChainId = "0x" + chainId.toString(16);
+      try {
+        hexChainId = "0x" + chainId.toString(16);
+      } catch (error) {
+        hexChainId = "0x1"
+      }
     }
     this.chainId = hexChainId;
     for (var i = 0; i < window.frames.length; i++) {
@@ -306,31 +310,47 @@ class TrustWeb3Provider extends EventEmitter {
   }
 
   eth_sign(payload) {
-    const message = payload.params[1]
+    const params = payload.params
+
+    const address = params[0]
+    const message = params[1]
+
     const buffer = Utils.messageToBuffer(message);
     if (isUtf8(buffer)) {
       if (buffer.length === 0) {
         // hex it
         const hex = Utils.bufferToHex(message);
-        this.postMessage("signPersonalMessage", payload.id, { data: hex, payload: payload.params });
+        this.postMessage("signPersonalMessage", payload.id, { data: hex, from: address });
       } else {
-        this.postMessage("signPersonalMessage", payload.id, { data: message, payload: payload.params });
+        this.postMessage("signPersonalMessage", payload.id, { data: message, from: address });
       }
     } else {
       const hex = Utils.bufferToHex(buffer);
-      this.postMessage("signMessage", payload.id, { data: hex, payload: payload.params });
+      this.postMessage("signMessage", payload.id, { data: hex, from: address });
     }
   }
 
   personal_sign(payload) {
-    const message = payload.params[0];
+    const params = payload.params
+    const first = params[0]
+    const second = params[1]
+
+    let message, address;
+    if (this.customHandler.resemblesData(second) && this.customHandler.resemblesAddress(first)) {
+      address = params[0]
+      message = params[1]
+    } else {
+      message = params[0]
+      address = params[1]
+    }
+
     const buffer = Utils.messageToBuffer(message);
     if (buffer.length === 0) {
       // hex it
       const hex = Utils.bufferToHex(message);
-      this.postMessage("signPersonalMessage", payload.id, { data: hex, payload: payload.params });
+      this.postMessage("signPersonalMessage", payload.id, { data: hex, from: address });
     } else {
-      this.postMessage("signPersonalMessage", payload.id, { data: message, payload: payload.params });
+      this.postMessage("signPersonalMessage", payload.id, { data: message, from: address });
     }
   }
 
@@ -342,8 +362,23 @@ class TrustWeb3Provider extends EventEmitter {
   }
 
   eth_signTypedData(payload, version) {
+    const params = payload.params
+    const first = params[0]
+    const second = JSON.stringify(params[1])
+
+    let message, address;
+    if (this.customHandler.resemblesData(second) && this.customHandler.resemblesAddress(first)) {
+      address = params[0]
+      message = params[1]
+    } else {
+      message = params[0]
+      address = params[1]
+    }
+
     this.postMessage("signTypedMessage", payload.id, {
-      data: payload.params[1], payload: payload.params, typeVersion: version
+      from: address,
+      data: message,
+      typeVersion: version,
     });
   }
 
