@@ -125,7 +125,39 @@ class TrustWeb3Provider extends EventEmitter {
     console.log(
       'enable() is deprecated, please use window.ethereum.request({method: "eth_requestAccounts"}) instead.'
     );
-    return this.request({ method: "eth_requestAccounts", params: [] });
+    if (this.is_conflux()) {
+      return this.request({ method: "cfx_requestAccounts", params: [] });
+    } else {
+      return this.request({ method: "eth_requestAccounts", params: [] });
+    }
+  }
+
+  /**
+   * @deprecated Use request({method: "eth_blockNumber"}) instead.
+   */
+  getBlockNumber() {
+    console.log(
+      'getBlockNumber() is deprecated, please use window.ethereum.request({method: "eth_blockNumber"}) instead.'
+    );
+    if (this.is_conflux()) {
+      return this.request({ method: "cfx_blockNumber", params: [] });
+    } else {
+      return this.request({ method: "eth_blockNumber", params: [] });
+    }
+  }
+
+  /**
+   * @deprecated Use request({method: "eth_getBlockByNumber"}) instead.
+   */
+  getBlockByNumber(number) {
+    console.log(
+      'getBlockNumber() is deprecated, please use window.ethereum.request({method: "eth_getBlockByNumber"}) instead.'
+    );
+    if (this.is_conflux()) {
+      return this.request({ method: "cfx_getBlockByNumber", params: [] });
+    } else {
+      return this.request({ method: "eth_getBlockByNumber", params: [] });
+    }
   }
 
   /**
@@ -177,6 +209,17 @@ class TrustWeb3Provider extends EventEmitter {
         response.result = this.net_version();
         break;
       case "eth_chainId":
+        response.result = this.eth_chainId();
+        break;
+
+      // support cfx
+      case "cfx_accounts":
+        response.result = this.eth_accounts();
+        break;
+      case "cfx_coinbase":
+        response.result = this.eth_coinbase();
+        break;
+      case "cfx_chainId":
         response.result = this.eth_chainId();
         break;
       default:
@@ -277,10 +320,40 @@ class TrustWeb3Provider extends EventEmitter {
             4200,
             `Trust does not support calling ${payload.method}. Please use your own solution`
           );
+
+        // support cfx
+        case "cfx_accounts":
+          return this.sendResponse(payload.id, this.eth_accounts());
+        case "cfx_coinbase":
+          return this.sendResponse(payload.id, this.eth_coinbase());
+        case "cfx_chainId":
+          return this.sendResponse(payload.id, this.eth_chainId());
+        case "cfx_sign":
+          return this.eth_sign(payload);
+        case "cfx_signTypedData":
+          return this.eth_signTypedData(payload, 'v1');
+        case "cfx_signTypedData_v1":
+          return this.eth_signTypedData(payload, 'v1');
+        case "cfx_signTypedData_v3":
+          return this.eth_signTypedData(payload, "v3");
+        case "cfx_signTypedData_v4":
+          return this.eth_signTypedData(payload, 'v4');
+        case "cfx_sendTransaction":
+          return this.eth_sendTransaction(payload);
+        case "cfx_requestAccounts":
+          return this.eth_requestAccounts(payload);
+
         default:
           // call upstream rpc
           this.callbacks.delete(payload.id);
           this.wrapResults.delete(payload.id);
+          if (!payload.jsonrpc) {
+            payload.jsonrpc = '2.0'
+          }
+          if (this.is_conflux()) {
+            payload.method.replace('eth_', 'cfx_')
+          }
+          console.log(`==> rpc request ${JSON.stringify(payload)}`);
           return this.rpc
             .call(payload)
             .then((response) => {
@@ -405,6 +478,10 @@ class TrustWeb3Provider extends EventEmitter {
 
   wallet_addEthereumChain(payload) {
     this.postMessage("addEthereumChain", payload.id, payload.params[0]);
+  }
+
+  is_conflux() {
+    return this.networkVersion == 1029
   }
 
   /**
